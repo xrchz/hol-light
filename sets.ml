@@ -46,7 +46,17 @@ let set_tybij =
         "set" ("GSPEC","dest_set") set_exists);;
 
 let IN_DEF = new_definition
-  `!P x. (x : A) IN P <=> dest_set P x`;;
+  `!p x. (x : A) IN p <=> dest_set p x`;;
+
+(* ------------------------------------------------------------------------- *)
+(* Rewrite rule for eliminating set-comprehension membership assertions.     *)
+(* ------------------------------------------------------------------------- *)
+
+let IN_ELIM_THM = prove
+ (`!p (x:A). x IN GSPEC p <=> p x`,
+  REWRITE_TAC[IN_DEF; set_tybij]);;
+
+export_thm IN_ELIM_THM;;
 
 (* ------------------------------------------------------------------------- *)
 (* Axiom of extensionality in this framework.                                *)
@@ -61,25 +71,6 @@ let EXTENSION_IMP = prove
   ASM_REWRITE_TAC []);;
 
 export_thm EXTENSION_IMP;;
-
-let EXTENSION = prove
- (`!s t. (s = t) <=> !x:A. x IN s <=> x IN t`,
-  REPEAT STRIP_TAC THEN
-  EQ_TAC THENL
-  [DISCH_THEN (fun th -> REWRITE_TAC [th]);
-   MATCH_ACCEPT_TAC EXTENSION_IMP]);;
-
-export_thm EXTENSION;;
-
-(* ------------------------------------------------------------------------- *)
-(* Rewrite rule for eliminating set-comprehension membership assertions.     *)
-(* ------------------------------------------------------------------------- *)
-
-let IN_ELIM_THM = prove
- (`!p (x:A). x IN GSPEC p <=> p x`,
-  REWRITE_TAC[IN_DEF; set_tybij]);;
-
-export_thm IN_ELIM_THM;;
 
 (* ------------------------------------------------------------------------- *)
 (* These two definitions are needed first, for the parsing of enumerations.  *)
@@ -199,8 +190,14 @@ let CHOICE_DEF = new_definition
 
 let CHOICE = prove
  (`!s : A set. ~(s = EMPTY) ==> (CHOICE s) IN s`,
-  REWRITE_TAC
-    [CHOICE_DEF; EXTENSION; EMPTY; IN_ELIM_THM; NOT_FORALL_THM; EXISTS_THM]);;
+  GEN_TAC THEN
+  ONCE_REWRITE_TAC [GSYM CONTRAPOS_THM] THEN
+  REWRITE_TAC [CHOICE_DEF] THEN
+  STRIP_TAC THEN
+  MATCH_MP_TAC EXTENSION_IMP THEN
+  REWRITE_TAC [EMPTY; IN_ELIM_THM] THEN
+  REWRITE_TAC [GSYM NOT_EXISTS_THM; EXISTS_THM] THEN
+  FIRST_ASSUM ACCEPT_TAC);;
 
 export_thm CHOICE;;
 
@@ -214,6 +211,20 @@ export_thm REST;;
 (* ------------------------------------------------------------------------- *)
 
 logfile "set-thm";;
+
+let EXTENSION' = prove
+ (`!s t. (!x:A. x IN s <=> x IN t) <=> s = t`,
+  REPEAT STRIP_TAC THEN
+  EQ_TAC THENL
+  [MATCH_ACCEPT_TAC EXTENSION_IMP;
+   DISCH_THEN (fun th -> REWRITE_TAC [th])]);;
+
+export_thm EXTENSION';;
+
+let EXTENSION = prove
+ (`!s t. (s = t) <=> !x:A. x IN s <=> x IN t`,
+  ONCE_REWRITE_TAC [EQ_SYM_EQ] THEN
+  ACCEPT_TAC EXTENSION');;
 
 let IN_ELIM = prove
  (`!p (x:A). x IN GSPEC (\v. ?y. v = y /\ p y) <=> p x`,
@@ -297,7 +308,7 @@ let IN_REST = prove
 export_thm IN_REST;;
 
 let FORALL_IN_INSERT = prove
- (`!P a s. (!x. (x:A) IN (a INSERT s) ==> P x) <=> P a /\ (!x. x IN s ==> P x)`,
+ (`!p a s. (!x. (x:A) IN (a INSERT s) ==> p x) <=> p a /\ (!x. x IN s ==> p x)`,
   REWRITE_TAC[IN_INSERT] THEN
   REPEAT STRIP_TAC THEN
   EQ_TAC THENL
@@ -314,7 +325,7 @@ let FORALL_IN_INSERT = prove
 export_thm FORALL_IN_INSERT;;
 
 let EXISTS_IN_INSERT = prove
- (`!P a s. (?x. (x:A) IN (a INSERT s) /\ P x) <=> P a \/ ?x. x IN s /\ P x`,
+ (`!p a s. (?x. (x:A) IN (a INSERT s) /\ p x) <=> p a \/ ?x. x IN s /\ p x`,
   REWRITE_TAC[IN_INSERT] THEN
   REPEAT STRIP_TAC THEN
   EQ_TAC THENL
@@ -369,8 +380,6 @@ export_thm UNIV_NOT_EMPTY;;
 let EMPTY_NOT_UNIV = prove
  (`~(EMPTY : A set = UNIV)`,
   ACCEPT_TAC (GSYM UNIV_NOT_EMPTY));;
-
-export_thm EMPTY_NOT_UNIV;;
 
 let EQ_UNIV = prove
  (`!s. (!x:A. x IN s) <=> (s = UNIV)`,
@@ -578,14 +587,22 @@ let UNION_COMM = prove
 
 export_thm UNION_COMM;;
 
-let SUBSET_UNION = prove
- (`(!s : A set. !t. s SUBSET (s UNION t)) /\
-   (!s : A set. !t. s SUBSET (t UNION s))`,
+let SUBSET_LEFT_UNION = prove
+ (`!s : A set. !t. s SUBSET (s UNION t)`,
   REWRITE_TAC [SUBSET; IN_UNION] THEN
   REPEAT STRIP_TAC THEN
   ASM_REWRITE_TAC []);;
 
-export_thm SUBSET_UNION;;
+export_thm SUBSET_LEFT_UNION;;
+
+let SUBSET_RIGHT_UNION = prove
+ (`!s : A set. !t. s SUBSET (t UNION s)`,
+  ONCE_REWRITE_TAC [UNION_COMM] THEN
+  ACCEPT_TAC SUBSET_LEFT_UNION);;
+
+export_thm SUBSET_RIGHT_UNION;;
+
+let SUBSET_UNION = CONJ SUBSET_LEFT_UNION SUBSET_RIGHT_UNION;;
 
 let SUBSET_UNION_ABSORPTION = prove
  (`!s : A set. !t. s SUBSET t <=> (s UNION t = t)`,
@@ -606,19 +623,35 @@ let SUBSET_UNION_ABSORPTION = prove
 
 export_thm SUBSET_UNION_ABSORPTION;;
 
-let UNION_EMPTY = prove
- (`(!s : A set. EMPTY UNION s = s) /\
-   (!s : A set. s UNION EMPTY = s)`,
+let UNION_LEFT_EMPTY = prove
+ (`!s : A set. EMPTY UNION s = s`,
   REWRITE_TAC [EXTENSION; NOT_IN_EMPTY; IN_UNION]);;
 
-export_thm UNION_EMPTY;;
+export_thm UNION_LEFT_EMPTY;;
 
-let UNION_UNIV = prove
- (`(!s : A set. UNIV UNION s = UNIV) /\
-   (!s : A set. s UNION UNIV = UNIV)`,
+let UNION_RIGHT_EMPTY = prove
+ (`!s : A set. s UNION EMPTY = s`,
+  ONCE_REWRITE_TAC [UNION_COMM] THEN
+  ACCEPT_TAC UNION_LEFT_EMPTY);;
+
+export_thm UNION_RIGHT_EMPTY;;
+
+let UNION_EMPTY = CONJ UNION_LEFT_EMPTY UNION_RIGHT_EMPTY;;
+
+let UNION_LEFT_UNIV = prove
+ (`!s : A set. UNIV UNION s = UNIV`,
   REWRITE_TAC [EXTENSION; IN_UNIV; IN_UNION]);;
 
-export_thm UNION_UNIV;;
+export_thm UNION_LEFT_UNIV;;
+
+let UNION_RIGHT_UNIV = prove
+ (`!s : A set. s UNION UNIV = UNIV`,
+  ONCE_REWRITE_TAC [UNION_COMM] THEN
+  ACCEPT_TAC UNION_LEFT_UNIV);;
+
+export_thm UNION_RIGHT_UNIV;;
+
+let UNION_UNIV = CONJ UNION_LEFT_UNIV UNION_RIGHT_UNIV;;
 
 let EMPTY_UNION = prove
  (`!s : A set. !t. (s UNION t = EMPTY) <=> (s = EMPTY) /\ (t = EMPTY)`,
@@ -667,14 +700,22 @@ let INTER_COMM = prove
 
 export_thm INTER_COMM;;
 
-let INTER_SUBSET = prove
- (`(!s : A set. !t. (s INTER t) SUBSET s) /\
-   (!s : A set. !t. (t INTER s) SUBSET s)`,
+let LEFT_INTER_SUBSET = prove
+ (`!s : A set. !t. (s INTER t) SUBSET s`,
   REWRITE_TAC [SUBSET; IN_INTER] THEN
   REPEAT STRIP_TAC THEN
   ASM_REWRITE_TAC []);;
 
-export_thm INTER_SUBSET;;
+export_thm LEFT_INTER_SUBSET;;
+
+let RIGHT_INTER_SUBSET = prove
+ (`!s : A set. !t. (t INTER s) SUBSET s`,
+  ONCE_REWRITE_TAC [INTER_COMM] THEN
+  ACCEPT_TAC LEFT_INTER_SUBSET);;
+
+export_thm RIGHT_INTER_SUBSET;;
+
+let INTER_SUBSET = CONJ LEFT_INTER_SUBSET RIGHT_INTER_SUBSET;;
 
 let SUBSET_INTER_ABSORPTION = prove
  (`!s : A set. !t. s SUBSET t <=> (s INTER t = s)`,
@@ -694,19 +735,35 @@ let SUBSET_INTER_ABSORPTION = prove
 
 export_thm SUBSET_INTER_ABSORPTION;;
 
-let INTER_EMPTY = prove
- (`(!s : A set. EMPTY INTER s = EMPTY) /\
-   (!s : A set. s INTER EMPTY = EMPTY)`,
+let INTER_LEFT_EMPTY = prove
+ (`!s : A set. EMPTY INTER s = EMPTY`,
   REWRITE_TAC [EXTENSION; NOT_IN_EMPTY; IN_INTER]);;
 
-export_thm INTER_EMPTY;;
+export_thm INTER_LEFT_EMPTY;;
 
-let INTER_UNIV = prove
- (`(!s : A set. UNIV INTER s = s) /\
-   (!s : A set. s INTER UNIV = s)`,
+let INTER_RIGHT_EMPTY = prove
+ (`!s : A set. s INTER EMPTY = EMPTY`,
+  ONCE_REWRITE_TAC [INTER_COMM] THEN
+  ACCEPT_TAC INTER_LEFT_EMPTY);;
+
+export_thm INTER_RIGHT_EMPTY;;
+
+let INTER_EMPTY = CONJ INTER_LEFT_EMPTY INTER_RIGHT_EMPTY;;
+
+let INTER_LEFT_UNIV = prove
+ (`!s : A set. UNIV INTER s = s`,
   REWRITE_TAC [EXTENSION; IN_UNIV; IN_INTER]);;
 
-export_thm INTER_UNIV;;
+export_thm INTER_LEFT_UNIV;;
+
+let INTER_RIGHT_UNIV = prove
+ (`!s : A set. s INTER UNIV = s`,
+  ONCE_REWRITE_TAC [INTER_COMM] THEN
+  ACCEPT_TAC INTER_LEFT_UNIV);;
+
+export_thm INTER_RIGHT_UNIV;;
+
+let INTER_UNIV = CONJ INTER_LEFT_UNIV INTER_RIGHT_UNIV;;
 
 let SUBSET_INTER = prove
  (`!(s : A set) t u. s SUBSET (t INTER u) <=> s SUBSET t /\ s SUBSET u`,
@@ -778,14 +835,21 @@ let DISJOINT_SYM = prove
 
 export_thm DISJOINT_SYM;;
 
-let DISJOINT_EMPTY = prove
- (`!s : A set. DISJOINT EMPTY s /\ DISJOINT s EMPTY`,
+let EMPTY_DISJOINT = prove
+ (`!s : A set. DISJOINT EMPTY s`,
   REWRITE_TAC [DISJOINT; INTER_EMPTY]);;
+
+export_thm EMPTY_DISJOINT;;
+
+let DISJOINT_EMPTY = prove
+ (`!s : A set. DISJOINT s EMPTY`,
+  ONCE_REWRITE_TAC [DISJOINT_SYM] THEN
+  ACCEPT_TAC EMPTY_DISJOINT);;
 
 export_thm DISJOINT_EMPTY;;
 
 let DISJOINT_EMPTY_REFL = prove
- (`!s : A set. (s = EMPTY) <=> (DISJOINT s s)`,
+ (`!s : A set. DISJOINT s s <=> s = EMPTY`,
   REWRITE_TAC [DISJOINT; INTER_IDEMPOT]);;
 
 export_thm DISJOINT_EMPTY_REFL;;
@@ -1106,8 +1170,6 @@ let NOT_EMPTY_INSERT = prove
  (`!x:A. !s. ~(EMPTY = x INSERT s)`,
   ONCE_REWRITE_TAC [EQ_SYM_EQ] THEN
   ACCEPT_TAC NOT_INSERT_EMPTY);;
-
-export_thm NOT_EMPTY_INSERT;;
 
 let INSERT_UNION = prove
  (`!x:A. !s t. (x INSERT s) UNION t =
@@ -1454,8 +1516,8 @@ let UNIONS_2 = prove
 export_thm UNIONS_2;;
 
 let FORALL_IN_UNIONS = prove
- (`!P (s : (A set) set).
-     (!x. x IN UNIONS s ==> P x) <=> !t x. t IN s /\ x IN t ==> P x`,
+ (`!p (s : (A set) set).
+     (!x. x IN UNIONS s ==> p x) <=> !t x. t IN s /\ x IN t ==> p x`,
   REPEAT GEN_TAC THEN
   ONCE_REWRITE_TAC [SWAP_FORALL_THM] THEN
   REWRITE_TAC [IN_UNIONS; LEFT_IMP_EXISTS_THM]);;
@@ -1463,8 +1525,8 @@ let FORALL_IN_UNIONS = prove
 export_thm FORALL_IN_UNIONS;;
 
 let EXISTS_IN_UNIONS = prove
- (`!P (s : (A set) set).
-    (?x. x IN UNIONS s /\ P x) <=> (?t x. t IN s /\ x IN t /\ P x)`,
+ (`!p (s : (A set) set).
+    (?x. x IN UNIONS s /\ p x) <=> (?t x. t IN s /\ x IN t /\ p x)`,
   ONCE_REWRITE_TAC [SWAP_EXISTS_THM] THEN
   REWRITE_TAC [IN_UNIONS; LEFT_AND_EXISTS_THM; CONJ_ASSOC]);;
 
@@ -1690,10 +1752,15 @@ export_thm INTERS_UNION;;
 (* Image.                                                                    *)
 (* ------------------------------------------------------------------------- *)
 
-let IMAGE_CLAUSES = prove
- (`(!(f : A -> B). IMAGE f {} = {}) /\
-   (!(f : A -> B) x s. IMAGE f (x INSERT s) = (f x) INSERT (IMAGE f s))`,
-  REWRITE_TAC[IMAGE; IN_ELIM_THM; NOT_IN_EMPTY; IN_INSERT; EXTENSION] THEN
+let IMAGE_EMPTY = prove
+ (`!(f : A -> B). IMAGE f {} = {}`,
+  REWRITE_TAC [IMAGE; IN_ELIM_THM; NOT_IN_EMPTY; EXTENSION]);;
+
+export_thm IMAGE_EMPTY;;
+
+let IMAGE_INSERT = prove
+ (`!(f : A -> B) x s. IMAGE f (x INSERT s) = (f x) INSERT (IMAGE f s)`,
+  REWRITE_TAC [IMAGE; IN_ELIM_THM; IN_INSERT; EXTENSION] THEN
   REPEAT STRIP_TAC THEN
   EQ_TAC THENL
   [REPEAT STRIP_TAC THENL
@@ -1713,7 +1780,9 @@ let IMAGE_CLAUSES = prove
     EXISTS_TAC `x'':A` THEN
     ASM_REWRITE_TAC []]]);;
 
-export_thm IMAGE_CLAUSES;;
+export_thm IMAGE_INSERT;;
+
+let IMAGE_CLAUSES = CONJ IMAGE_EMPTY IMAGE_INSERT;;
 
 let IMAGE_SING = prove
  (`!(f : A -> B) x. IMAGE f (x INSERT EMPTY) = f x INSERT EMPTY`,
@@ -1849,7 +1918,7 @@ let IMAGE_EQ_EMPTY = prove
 export_thm IMAGE_EQ_EMPTY;;
 
 let FORALL_IN_IMAGE = prove
- (`!P (f : A -> B) s. (!y. y IN IMAGE f s ==> P y) <=> (!x. x IN s ==> P (f x))`,
+ (`!p (f : A -> B) s. (!y. y IN IMAGE f s ==> p y) <=> (!x. x IN s ==> p (f x))`,
   REWRITE_TAC[IN_IMAGE] THEN
   REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
   [FIRST_X_ASSUM MATCH_MP_TAC THEN
@@ -1862,7 +1931,7 @@ let FORALL_IN_IMAGE = prove
 export_thm FORALL_IN_IMAGE;;
 
 let EXISTS_IN_IMAGE = prove
- (`!P (f : A -> B) s. (?y. y IN IMAGE f s /\ P y) <=> ?x. x IN s /\ P(f x)`,
+ (`!p (f : A -> B) s. (?y. y IN IMAGE f s /\ p y) <=> ?x. x IN s /\ p (f x)`,
   REWRITE_TAC[IN_IMAGE] THEN
   REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
   [EXISTS_TAC `x:A` THEN
@@ -1875,7 +1944,8 @@ let EXISTS_IN_IMAGE = prove
 export_thm EXISTS_IN_IMAGE;;
 
 let SUBSET_IMAGE = prove
- (`!f:A->B s t. s SUBSET (IMAGE f t) <=> ?u. u SUBSET t /\ (s = IMAGE f u)`,
+ (`!(f : A -> B) s t.
+     s SUBSET (IMAGE f t) <=> ?u. u SUBSET t /\ (s = IMAGE f u)`,
   REWRITE_TAC [EXTENSION; SUBSET; IN_IMAGE; IN_ELIM_THM] THEN
   REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
   [EXISTS_TAC `{x | x IN t /\ (f:A->B) x IN s}` THEN
@@ -1904,9 +1974,9 @@ let SUBSET_IMAGE = prove
 export_thm SUBSET_IMAGE;;
 
 let FORALL_SUBSET_IMAGE = prove
- (`!P (f : A -> B) s.
-     (!t. t SUBSET IMAGE f s ==> P t) <=>
-     (!t. t SUBSET s ==> P (IMAGE f t))`,
+ (`!p (f : A -> B) s.
+     (!t. t SUBSET IMAGE f s ==> p t) <=>
+     (!t. t SUBSET s ==> p (IMAGE f t))`,
   REWRITE_TAC [SUBSET_IMAGE] THEN
   REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
   [FIRST_X_ASSUM MATCH_MP_TAC THEN
@@ -1919,8 +1989,8 @@ let FORALL_SUBSET_IMAGE = prove
 export_thm FORALL_SUBSET_IMAGE;;
 
 let EXISTS_SUBSET_IMAGE = prove
- (`!P (f : A -> B) s.
-    (?t. t SUBSET IMAGE f s /\ P t) <=> (?t. t SUBSET s /\ P (IMAGE f t))`,
+ (`!p (f : A -> B) s.
+    (?t. t SUBSET IMAGE f s /\ p t) <=> (?t. t SUBSET s /\ p (IMAGE f t))`,
   REWRITE_TAC [SUBSET_IMAGE] THEN
   REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
   [EXISTS_TAC `u : A set` THEN
@@ -1955,7 +2025,7 @@ let SIMPLE_IMAGE = prove
 export_thm SIMPLE_IMAGE;;
 
 let SIMPLE_IMAGE_GEN = prove
- (`!P (f : A -> B). {f x | P x} = IMAGE f {x | P x}`,
+ (`!p (f : A -> B). {f x | p x} = IMAGE f {x | p x}`,
   REWRITE_TAC [EXTENSION; IN_IMAGE; IN_ELIM_THM] THEN
   REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
   [EXISTS_TAC `x':A` THEN
@@ -2020,16 +2090,23 @@ let EMPTY_GSPEC = prove
 
 export_thm EMPTY_GSPEC;;
 
-let SING_GSPEC = prove
- (`(!(a:A). {x | x = a} = {a}) /\
-   (!(a:A). {x | a = x} = {a})`,
-  REWRITE_TAC [EXTENSION; IN_ELIM; IN_INSERT; NOT_IN_EMPTY] THEN
+let SING_GSPEC1 = prove
+ (`!(a:A). {x | x = a} = {a}`,
+  REWRITE_TAC [EXTENSION; IN_ELIM; IN_SING]);;
+
+export_thm SING_GSPEC1;;
+
+let SING_GSPEC2 = prove
+ (`!(a:A). {x | a = x} = {a}`,
+  REWRITE_TAC [EXTENSION; IN_ELIM; IN_SING] THEN
   ACCEPT_TAC EQ_SYM_EQ);;
 
-export_thm SING_GSPEC;;
+export_thm SING_GSPEC2;;
+
+let SING_GSPEC = CONJ SING_GSPEC1 SING_GSPEC2;;
 
 let IN_ELIM_PAIR_THM = prove
- (`!P (a:A) (b:B). (a,b) IN {(x,y) | P x y} <=> P a b`,
+ (`!p (a:A) (b:B). (a,b) IN {(x,y) | p x y} <=> p a b`,
   REPEAT GEN_TAC THEN
   REWRITE_TAC[IN_ELIM_THM; PAIR_EQ] THEN
   EQ_TAC THENL
@@ -2043,13 +2120,13 @@ let IN_ELIM_PAIR_THM = prove
 export_thm IN_ELIM_PAIR_THM;;
 
 let SET_PAIR_THM = prove
- (`!(P : A # B -> bool). {p | P p} = {(a,b) | P(a,b)}`,
+ (`!(p : A # B -> bool). { ab | p ab } = { (a,b) | p (a,b) }`,
   REWRITE_TAC [EXTENSION; IN_ELIM_PAIR_THM] THEN
   REWRITE_TAC [IN_ELIM_THM] THEN
   REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
   [FIRST_X_ASSUM SUBST_VAR_TAC THEN
    POP_ASSUM MP_TAC THEN
-   MP_TAC (SPEC `p : A # B` PAIR_SURJECTIVE) THEN
+   MP_TAC (SPEC `ab : A # B` PAIR_SURJECTIVE) THEN
    STRIP_TAC THEN
    FIRST_X_ASSUM SUBST_VAR_TAC THEN
    STRIP_TAC THEN
@@ -2061,89 +2138,113 @@ let SET_PAIR_THM = prove
 
 export_thm SET_PAIR_THM;;
 
-let FORALL_IN_GSPEC = prove
- (`(!P (f : A -> B) Q.
-      (!z. z IN {f x | P x} ==> Q z) <=> (!x. P x ==> Q(f x))) /\
-   (!P (f : A -> B -> C) Q.
-      (!z. z IN {f x y | P x y} ==> Q z) <=>
-      (!x y. P x y ==> Q(f x y))) /\
-   (!P (f : A -> B -> C -> D) Q.
-      (!z. z IN {f w x y | P w x y} ==> Q z) <=>
-      (!w x y. P w x y ==> Q(f w x y)))`,
+let FORALL_IN_GSPEC1 = prove
+ (`!p (f : A -> B) q.
+     (!z. z IN {f x | p x} ==> q z) <=> (!x. p x ==> q (f x))`,
   REWRITE_TAC [IN_ELIM_THM] THEN
-  REPEAT STRIP_TAC THENL
-  [REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
-   [FIRST_X_ASSUM MATCH_MP_TAC THEN
-    EXISTS_TAC `x:A` THEN
-    ASM_REWRITE_TAC [];
-    FIRST_X_ASSUM SUBST_VAR_TAC THEN
-    FIRST_X_ASSUM MATCH_MP_TAC THEN
-    FIRST_ASSUM ACCEPT_TAC];
-   REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
-   [FIRST_X_ASSUM MATCH_MP_TAC THEN
-    EXISTS_TAC `x:A` THEN
-    EXISTS_TAC `y:B` THEN
-    ASM_REWRITE_TAC [];
-    FIRST_X_ASSUM SUBST_VAR_TAC THEN
-    FIRST_X_ASSUM MATCH_MP_TAC THEN
-    FIRST_ASSUM ACCEPT_TAC];
-   REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
-   [FIRST_X_ASSUM MATCH_MP_TAC THEN
-    EXISTS_TAC `w:A` THEN
-    EXISTS_TAC `x:B` THEN
-    EXISTS_TAC `y:C` THEN
-    ASM_REWRITE_TAC [];
-    FIRST_X_ASSUM SUBST_VAR_TAC THEN
-    FIRST_X_ASSUM MATCH_MP_TAC THEN
-    FIRST_ASSUM ACCEPT_TAC]]);;
+  REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
+  [FIRST_X_ASSUM MATCH_MP_TAC THEN
+   EXISTS_TAC `x:A` THEN
+   ASM_REWRITE_TAC [];
+   FIRST_X_ASSUM SUBST_VAR_TAC THEN
+   FIRST_X_ASSUM MATCH_MP_TAC THEN
+   FIRST_ASSUM ACCEPT_TAC]);;
 
-export_thm FORALL_IN_GSPEC;;
+export_thm FORALL_IN_GSPEC1;;
 
-let EXISTS_IN_GSPEC = prove
- (`(!P (f : A -> B) Q.
-      (?z. z IN {f x | P x} /\ Q z) <=> (?x. P x /\ Q(f x))) /\
-   (!P (f : A -> B -> C) Q.
-      (?z. z IN {f x y | P x y} /\ Q z) <=>
-          (?x y. P x y /\ Q(f x y))) /\
-   (!P (f : A -> B -> C -> D) Q.
-      (?z. z IN {f w x y | P w x y} /\ Q z) <=>
-          (?w x y. P w x y /\ Q(f w x y)))`,
+let FORALL_IN_GSPEC2 = prove
+ (`!p (f : A -> B -> C) q.
+     (!z. z IN {f x y | p x y} ==> q z) <=>
+     (!x y. p x y ==> q (f x y))`,
   REWRITE_TAC [IN_ELIM_THM] THEN
-  REPEAT STRIP_TAC THENL
-  [REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
-   [EXISTS_TAC `x:A` THEN
-    FIRST_X_ASSUM (fun th -> ASM_REWRITE_TAC [SYM th]);
-    EXISTS_TAC `(f : A -> B) x` THEN
-    ASM_REWRITE_TAC [] THEN
-    EXISTS_TAC `x : A` THEN
-    ASM_REWRITE_TAC []];
-   REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
-   [EXISTS_TAC `x:A` THEN
-    EXISTS_TAC `y:B` THEN
-    FIRST_X_ASSUM (fun th -> ASM_REWRITE_TAC [SYM th]);
-    EXISTS_TAC `(f : A -> B -> C) x y` THEN
-    ASM_REWRITE_TAC [] THEN
-    EXISTS_TAC `x : A` THEN
-    EXISTS_TAC `y : B` THEN
-    ASM_REWRITE_TAC []];
-   REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
-   [EXISTS_TAC `w:A` THEN
-    EXISTS_TAC `x:B` THEN
-    EXISTS_TAC `y:C` THEN
-    FIRST_X_ASSUM (fun th -> ASM_REWRITE_TAC [SYM th]);
-    EXISTS_TAC `(f : A -> B -> C -> D) w x y` THEN
-    ASM_REWRITE_TAC [] THEN
-    EXISTS_TAC `w : A` THEN
-    EXISTS_TAC `x : B` THEN
-    EXISTS_TAC `y : C` THEN
-    ASM_REWRITE_TAC []]]);;
+  REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
+  [FIRST_X_ASSUM MATCH_MP_TAC THEN
+   EXISTS_TAC `x:A` THEN
+   EXISTS_TAC `y:B` THEN
+   ASM_REWRITE_TAC [];
+   FIRST_X_ASSUM SUBST_VAR_TAC THEN
+   FIRST_X_ASSUM MATCH_MP_TAC THEN
+   FIRST_ASSUM ACCEPT_TAC]);;
 
-export_thm EXISTS_IN_GSPEC;;
+export_thm FORALL_IN_GSPEC2;;
+
+let FORALL_IN_GSPEC3 = prove
+ (`!p (f : A -> B -> C -> D) q.
+     (!z. z IN {f w x y | p w x y} ==> q z) <=>
+     (!w x y. p w x y ==> q (f w x y))`,
+  REWRITE_TAC [IN_ELIM_THM] THEN
+  REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
+  [FIRST_X_ASSUM MATCH_MP_TAC THEN
+   EXISTS_TAC `w:A` THEN
+   EXISTS_TAC `x:B` THEN
+   EXISTS_TAC `y:C` THEN
+   ASM_REWRITE_TAC [];
+   FIRST_X_ASSUM SUBST_VAR_TAC THEN
+   FIRST_X_ASSUM MATCH_MP_TAC THEN
+   FIRST_ASSUM ACCEPT_TAC]);;
+
+export_thm FORALL_IN_GSPEC3;;
+
+let FORALL_IN_GSPEC =
+    CONJ FORALL_IN_GSPEC1 (CONJ FORALL_IN_GSPEC2 FORALL_IN_GSPEC3);;
+
+let EXISTS_IN_GSPEC1 = prove
+ (`!p (f : A -> B) q.
+     (?z. z IN {f x | p x} /\ q z) <=> (?x. p x /\ q (f x))`,
+  REWRITE_TAC [IN_ELIM_THM] THEN
+  REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
+  [EXISTS_TAC `x:A` THEN
+   FIRST_X_ASSUM (fun th -> ASM_REWRITE_TAC [SYM th]);
+   EXISTS_TAC `(f : A -> B) x` THEN
+   ASM_REWRITE_TAC [] THEN
+   EXISTS_TAC `x : A` THEN
+   ASM_REWRITE_TAC []]);;
+
+export_thm EXISTS_IN_GSPEC1;;
+
+let EXISTS_IN_GSPEC2 = prove
+ (`!p (f : A -> B -> C) q.
+     (?z. z IN {f x y | p x y} /\ q z) <=>
+     (?x y. p x y /\ q (f x y))`,
+  REWRITE_TAC [IN_ELIM_THM] THEN
+  REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
+  [EXISTS_TAC `x:A` THEN
+   EXISTS_TAC `y:B` THEN
+   FIRST_X_ASSUM (fun th -> ASM_REWRITE_TAC [SYM th]);
+   EXISTS_TAC `(f : A -> B -> C) x y` THEN
+   ASM_REWRITE_TAC [] THEN
+   EXISTS_TAC `x : A` THEN
+   EXISTS_TAC `y : B` THEN
+   ASM_REWRITE_TAC []]);;
+
+export_thm EXISTS_IN_GSPEC2;;
+
+let EXISTS_IN_GSPEC3 = prove
+ (`!p (f : A -> B -> C -> D) q.
+     (?z. z IN {f w x y | p w x y} /\ q z) <=>
+     (?w x y. p w x y /\ q (f w x y))`,
+  REWRITE_TAC [IN_ELIM_THM] THEN
+  REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
+  [EXISTS_TAC `w:A` THEN
+   EXISTS_TAC `x:B` THEN
+   EXISTS_TAC `y:C` THEN
+   FIRST_X_ASSUM (fun th -> ASM_REWRITE_TAC [SYM th]);
+   EXISTS_TAC `(f : A -> B -> C -> D) w x y` THEN
+   ASM_REWRITE_TAC [] THEN
+   EXISTS_TAC `w : A` THEN
+   EXISTS_TAC `x : B` THEN
+   EXISTS_TAC `y : C` THEN
+   ASM_REWRITE_TAC []]);;
+
+export_thm EXISTS_IN_GSPEC3;;
+
+let EXISTS_IN_GSPEC =
+    CONJ EXISTS_IN_GSPEC1 (CONJ EXISTS_IN_GSPEC2 EXISTS_IN_GSPEC3);;
 
 let SET_PROVE_CASES = prove
- (`!P : A set -> bool.
-       P {} /\ (!a s. ~(a IN s) ==> P(a INSERT s))
-       ==> !s. P s`,
+ (`!p : A set -> bool.
+       p {} /\ (!a s. ~(a IN s) ==> p (a INSERT s))
+       ==> !s. p s`,
   REPEAT STRIP_TAC THEN
   MP_TAC (SPEC `s:A set` SET_CASES) THEN
   STRIP_TAC THENL
@@ -2190,99 +2291,133 @@ let INTERS_IMAGE = prove
 
 export_thm INTERS_IMAGE;;
 
-let UNIONS_GSPEC = prove
- (`(!P (f : A -> B set).
-      UNIONS {f x | P x} = {a | ?x. P x /\ a IN (f x)}) /\
-   (!P (f : A -> B -> C set).
-      UNIONS {f x y | P x y} = {a | ?x y. P x y /\ a IN (f x y)}) /\
-   (!P (f : A -> B -> C -> D set).
-      UNIONS {f x y z | P x y z} =
-            {a | ?x y z. P x y z /\ a IN (f x y z)})`,
+let UNIONS_GSPEC1 = prove
+ (`!p (f : A -> B set).
+     UNIONS {f x | p x} = {a | ?x. p x /\ a IN (f x)}`,
   REPEAT STRIP_TAC THEN
   GEN_REWRITE_TAC I [EXTENSION] THEN
-  REWRITE_TAC [IN_UNIONS; IN_ELIM_THM] THENL
-  [REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
-   [EXISTS_TAC `x:B` THEN
-    REWRITE_TAC [] THEN
-    EXISTS_TAC `x':A` THEN
-    FIRST_X_ASSUM (fun th -> ASM_REWRITE_TAC [SYM th]);
-    EXISTS_TAC `(f : A -> B set) x'` THEN
-    ASM_REWRITE_TAC [] THEN
-    EXISTS_TAC `x' : A` THEN
-    ASM_REWRITE_TAC []];
-   REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
-   [EXISTS_TAC `x:C` THEN
-    REWRITE_TAC [] THEN
-    EXISTS_TAC `x':A` THEN
-    EXISTS_TAC `y:B` THEN
-    FIRST_X_ASSUM (fun th -> ASM_REWRITE_TAC [SYM th]);
-    EXISTS_TAC `(f : A -> B -> C set) x' y` THEN
-    ASM_REWRITE_TAC [] THEN
-    EXISTS_TAC `x' : A` THEN
-    EXISTS_TAC `y : B` THEN
-    ASM_REWRITE_TAC []];
-   REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
-   [EXISTS_TAC `x:D` THEN
-    REWRITE_TAC [] THEN
-    EXISTS_TAC `x':A` THEN
-    EXISTS_TAC `y:B` THEN
-    EXISTS_TAC `z:C` THEN
-    FIRST_X_ASSUM (fun th -> ASM_REWRITE_TAC [SYM th]);
-    EXISTS_TAC `(f : A -> B -> C -> D set) x' y z` THEN
-    ASM_REWRITE_TAC [] THEN
-    EXISTS_TAC `x' : A` THEN
-    EXISTS_TAC `y : B` THEN
-    EXISTS_TAC `z : C` THEN
-    ASM_REWRITE_TAC []]]);;
+  REWRITE_TAC [IN_UNIONS; IN_ELIM_THM] THEN
+  REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
+  [EXISTS_TAC `x:B` THEN
+   REWRITE_TAC [] THEN
+   EXISTS_TAC `x':A` THEN
+   FIRST_X_ASSUM (fun th -> ASM_REWRITE_TAC [SYM th]);
+   EXISTS_TAC `(f : A -> B set) x'` THEN
+   ASM_REWRITE_TAC [] THEN
+   EXISTS_TAC `x' : A` THEN
+   ASM_REWRITE_TAC []]);;
 
-export_thm UNIONS_GSPEC;;
+export_thm UNIONS_GSPEC1;;
 
-let INTERS_GSPEC = prove
- (`(!P (f : A -> B set).
-      INTERS {f x | P x} = {a | !x. P x ==> a IN (f x)}) /\
-   (!P (f : A -> B -> C set).
-      INTERS {f x y | P x y} = {a | !x y. P x y ==> a IN (f x y)}) /\
-   (!P (f : A -> B -> C -> D set).
-      INTERS {f x y z | P x y z} =
-                {a | !x y z. P x y z ==> a IN (f x y z)})`,
+let UNIONS_GSPEC2 = prove
+ (`!p (f : A -> B -> C set).
+     UNIONS {f x y | p x y} = {a | ?x y. p x y /\ a IN (f x y)}`,
   REPEAT STRIP_TAC THEN
   GEN_REWRITE_TAC I [EXTENSION] THEN
-  REWRITE_TAC[IN_INTERS; IN_ELIM_THM] THENL
-  [REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
-   [EXISTS_TAC `x:B` THEN
-    REWRITE_TAC [] THEN
-    REPEAT STRIP_TAC THEN
-    FIRST_X_ASSUM MATCH_MP_TAC THEN
-    EXISTS_TAC `x':A` THEN
-    ASM_REWRITE_TAC [];
-    ASM_REWRITE_TAC [] THEN
-    FIRST_X_ASSUM MATCH_MP_TAC THEN
-    FIRST_ASSUM ACCEPT_TAC];
-   REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
-   [EXISTS_TAC `x:C` THEN
-    REWRITE_TAC [] THEN
-    REPEAT STRIP_TAC THEN
-    FIRST_X_ASSUM MATCH_MP_TAC THEN
-    EXISTS_TAC `x':A` THEN
-    EXISTS_TAC `y:B` THEN
-    ASM_REWRITE_TAC [];
-    ASM_REWRITE_TAC [] THEN
-    FIRST_X_ASSUM MATCH_MP_TAC THEN
-    FIRST_ASSUM ACCEPT_TAC];
-   REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
-   [EXISTS_TAC `x:D` THEN
-    REWRITE_TAC [] THEN
-    REPEAT STRIP_TAC THEN
-    FIRST_X_ASSUM MATCH_MP_TAC THEN
-    EXISTS_TAC `x':A` THEN
-    EXISTS_TAC `y:B` THEN
-    EXISTS_TAC `z:C` THEN
-    ASM_REWRITE_TAC [];
-    ASM_REWRITE_TAC [] THEN
-    FIRST_X_ASSUM MATCH_MP_TAC THEN
-    FIRST_ASSUM ACCEPT_TAC]]);;
+  REWRITE_TAC [IN_UNIONS; IN_ELIM_THM] THEN
+  REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
+  [EXISTS_TAC `x:C` THEN
+   REWRITE_TAC [] THEN
+   EXISTS_TAC `x':A` THEN
+   EXISTS_TAC `y:B` THEN
+   FIRST_X_ASSUM (fun th -> ASM_REWRITE_TAC [SYM th]);
+   EXISTS_TAC `(f : A -> B -> C set) x' y` THEN
+   ASM_REWRITE_TAC [] THEN
+   EXISTS_TAC `x' : A` THEN
+   EXISTS_TAC `y : B` THEN
+   ASM_REWRITE_TAC []]);;
 
-export_thm INTERS_GSPEC;;
+export_thm UNIONS_GSPEC2;;
+
+let UNIONS_GSPEC3 = prove
+ (`!p (f : A -> B -> C -> D set).
+     UNIONS {f x y z | p x y z} =
+     {a | ?x y z. p x y z /\ a IN (f x y z)}`,
+  REPEAT STRIP_TAC THEN
+  GEN_REWRITE_TAC I [EXTENSION] THEN
+  REWRITE_TAC [IN_UNIONS; IN_ELIM_THM] THEN
+  REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
+  [EXISTS_TAC `x:D` THEN
+   REWRITE_TAC [] THEN
+   EXISTS_TAC `x':A` THEN
+   EXISTS_TAC `y:B` THEN
+   EXISTS_TAC `z:C` THEN
+   FIRST_X_ASSUM (fun th -> ASM_REWRITE_TAC [SYM th]);
+   EXISTS_TAC `(f : A -> B -> C -> D set) x' y z` THEN
+   ASM_REWRITE_TAC [] THEN
+   EXISTS_TAC `x' : A` THEN
+   EXISTS_TAC `y : B` THEN
+   EXISTS_TAC `z : C` THEN
+   ASM_REWRITE_TAC []]);;
+
+export_thm UNIONS_GSPEC3;;
+
+let UNIONS_GSPEC =
+    CONJ UNIONS_GSPEC1 (CONJ UNIONS_GSPEC2 UNIONS_GSPEC3);;
+
+let INTERS_GSPEC1 = prove
+ (`!p (f : A -> B set).
+     INTERS {f x | p x} = {a | !x. p x ==> a IN (f x)}`,
+  REPEAT STRIP_TAC THEN
+  GEN_REWRITE_TAC I [EXTENSION] THEN
+  REWRITE_TAC [IN_INTERS; IN_ELIM_THM] THEN
+  REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
+  [EXISTS_TAC `x:B` THEN
+   REWRITE_TAC [] THEN
+   REPEAT STRIP_TAC THEN
+   FIRST_X_ASSUM MATCH_MP_TAC THEN
+   EXISTS_TAC `x':A` THEN
+   ASM_REWRITE_TAC [];
+   ASM_REWRITE_TAC [] THEN
+   FIRST_X_ASSUM MATCH_MP_TAC THEN
+   FIRST_ASSUM ACCEPT_TAC]);;
+
+export_thm INTERS_GSPEC1;;
+
+let INTERS_GSPEC2 = prove
+ (`!p (f : A -> B -> C set).
+     INTERS {f x y | p x y} = {a | !x y. p x y ==> a IN (f x y)}`,
+  REPEAT STRIP_TAC THEN
+  GEN_REWRITE_TAC I [EXTENSION] THEN
+  REWRITE_TAC [IN_INTERS; IN_ELIM_THM] THEN
+  REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
+  [EXISTS_TAC `x:C` THEN
+   REWRITE_TAC [] THEN
+   REPEAT STRIP_TAC THEN
+   FIRST_X_ASSUM MATCH_MP_TAC THEN
+   EXISTS_TAC `x':A` THEN
+   EXISTS_TAC `y:B` THEN
+   ASM_REWRITE_TAC [];
+   ASM_REWRITE_TAC [] THEN
+   FIRST_X_ASSUM MATCH_MP_TAC THEN
+   FIRST_ASSUM ACCEPT_TAC]);;
+
+export_thm INTERS_GSPEC2;;
+
+let INTERS_GSPEC3 = prove
+ (`!p (f : A -> B -> C -> D set).
+     INTERS {f x y z | p x y z} =
+     {a | !x y z. p x y z ==> a IN (f x y z)}`,
+  REPEAT STRIP_TAC THEN
+  GEN_REWRITE_TAC I [EXTENSION] THEN
+  REWRITE_TAC [IN_INTERS; IN_ELIM_THM] THEN
+  REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
+  [EXISTS_TAC `x:D` THEN
+   REWRITE_TAC [] THEN
+   REPEAT STRIP_TAC THEN
+   FIRST_X_ASSUM MATCH_MP_TAC THEN
+   EXISTS_TAC `x':A` THEN
+   EXISTS_TAC `y:B` THEN
+   EXISTS_TAC `z:C` THEN
+   ASM_REWRITE_TAC [];
+   ASM_REWRITE_TAC [] THEN
+   FIRST_X_ASSUM MATCH_MP_TAC THEN
+   FIRST_ASSUM ACCEPT_TAC]);;
+
+export_thm INTERS_GSPEC3;;
+
+let INTERS_GSPEC =
+    CONJ INTERS_GSPEC1 (CONJ INTERS_GSPEC2 INTERS_GSPEC3);;
 
 let DIFF_INTERS = prove
  (`!(u : A set) s. u DIFF INTERS s = UNIONS {u DIFF t | t IN s}`,
@@ -2353,9 +2488,18 @@ let FINITE_RULES,FINITE_INDUCT,FINITE_CASES =
     `FINITE (EMPTY : A set) /\
      !(x:A) s. FINITE s ==> FINITE (x INSERT s)`;;
 
-export_thm FINITE_RULES;;
 export_thm FINITE_INDUCT;;
 export_thm FINITE_CASES;;
+
+let FINITE_EMPTY = CONJUNCT1 FINITE_RULES;;
+
+export_thm FINITE_EMPTY;;
+
+let FINITE_INSERT_IMP = CONJUNCT2 FINITE_RULES;;
+
+export_thm FINITE_INSERT_IMP;;
+
+let FINITE_RULES = CONJ FINITE_EMPTY FINITE_INSERT_IMP;;
 
 let INFINITE = new_definition
   `INFINITE (s:A set) <=> ~(FINITE s)`;;
@@ -2367,12 +2511,6 @@ export_thm INFINITE;;
 (* ------------------------------------------------------------------------- *)
 
 logfile "set-finite-thm";;
-
-let FINITE_EMPTY = prove
- (`FINITE ({} : A set)`,
-  REWRITE_TAC[FINITE_RULES]);;
-
-export_thm FINITE_EMPTY;;
 
 let FINITE_SUBSET = prove
  (`!(s:A set) t. FINITE t /\ s SUBSET t ==> FINITE s`,
@@ -2775,9 +2913,9 @@ let FINITE_SUBSET_IMAGE = prove
 export_thm FINITE_SUBSET_IMAGE;;
 
 let EXISTS_FINITE_SUBSET_IMAGE = prove
- (`!P (f:A->B) s.
-    (?t. FINITE t /\ t SUBSET IMAGE f s /\ P t) <=>
-    (?t. FINITE t /\ t SUBSET s /\ P (IMAGE f t))`,
+ (`!p (f:A->B) s.
+    (?t. FINITE t /\ t SUBSET IMAGE f s /\ p t) <=>
+    (?t. FINITE t /\ t SUBSET s /\ p (IMAGE f t))`,
   REWRITE_TAC[FINITE_SUBSET_IMAGE; CONJ_ASSOC] THEN
   REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
   [FIRST_X_ASSUM SUBST_VAR_TAC THEN
@@ -2826,12 +2964,12 @@ export_thm FINITE_RESTRICT;;
 (* ------------------------------------------------------------------------- *)
 
 let FINITE_INDUCT_STRONG = prove
- (`!P:(A set)->bool.
-        P {} /\ (!x s. P s /\ ~(x IN s) /\ FINITE s ==> P(x INSERT s))
-        ==> !s. FINITE s ==> P s`,
+ (`!p : A set -> bool.
+     p {} /\ (!x s. p s /\ ~(x IN s) /\ FINITE s ==> p (x INSERT s)) ==>
+     !s. FINITE s ==> p s`,
   GEN_TAC THEN
   STRIP_TAC THEN
-  SUBGOAL_THEN `!s:A set. FINITE s ==> FINITE s /\ P s` MP_TAC THENL
+  SUBGOAL_THEN `!s:A set. FINITE s ==> FINITE s /\ p s` MP_TAC THENL
   [MATCH_MP_TAC FINITE_INDUCT THEN
    ASM_REWRITE_TAC [FINITE_EMPTY; FINITE_INSERT] THEN
    REPEAT GEN_TAC THEN
@@ -3088,8 +3226,8 @@ let SET_RECURSION_LEMMA = prove
     ASM_REWRITE_TAC [DELETE_INSERT_NON_ELEMENT]]]);;
 
 let ITSET = new_definition
-  `!(f:A->B->B) s b.
-     ITSET f s b =
+  `!(f:A->B->B) b s.
+     ITSET f b s =
         (@g. (g {} = b) /\
              !x s. FINITE s
                    ==> (g (x INSERT s) = if x IN s then g s else f x (g s)))
@@ -3098,11 +3236,11 @@ let ITSET = new_definition
 let FINITE_RECURSION = prove
  (`!(f:A->B->B) b.
         (!x y s. ~(x = y) ==> (f x (f y s) = f y (f x s)))
-        ==> (ITSET f {} b = b) /\
+        ==> (ITSET f b {} = b) /\
             !x s. FINITE s
-                  ==> (ITSET f (x INSERT s) b =
-                       if x IN s then ITSET f s b
-                                 else f x (ITSET f s b))`,
+                  ==> (ITSET f b (x INSERT s) =
+                       if x IN s then ITSET f b s
+                                 else f x (ITSET f b s))`,
   REPEAT GEN_TAC THEN DISCH_TAC THEN REWRITE_TAC[ITSET] THEN
   CONV_TAC SELECT_CONV THEN MATCH_MP_TAC SET_RECURSION_LEMMA THEN
   ASM_REWRITE_TAC[]);;
@@ -3114,44 +3252,48 @@ logfile "set-fold-thm";;
 let FINITE_RECURSION_DELETE = prove
  (`!(f:A->B->B) b.
         (!x y s. ~(x = y) ==> (f x (f y s) = f y (f x s)))
-        ==> (ITSET f {} b = b) /\
+        ==> (ITSET f b {} = b) /\
             !x s. FINITE s
-                  ==> (ITSET f s b =
-                       if x IN s then f x (ITSET f (s DELETE x) b)
-                                 else ITSET f (s DELETE x) b)`,
-  REPEAT GEN_TAC THEN DISCH_THEN(MP_TAC o MATCH_MP FINITE_RECURSION) THEN
-  DISCH_THEN(STRIP_ASSUME_TAC o SPEC `b:B`) THEN ASM_REWRITE_TAC[] THEN
-  REPEAT GEN_TAC THEN ASM_CASES_TAC `x:A IN s` THENL
-   [ASM_REWRITE_TAC[] THEN
-    DISCH_THEN(MP_TAC o MATCH_MP FINITE_DELETE_IMP) THEN
-    DISCH_THEN
-      (fun th ->
-         FIRST_X_ASSUM
-           (fun th' -> MP_TAC (SPEC `x:A` (MATCH_MP th' (SPEC `x:A` th))))) THEN
+                  ==> (ITSET f b s =
+                       if x IN s then f x (ITSET f b (s DELETE x))
+                                 else ITSET f b (s DELETE x))`,
+  REPEAT GEN_TAC THEN
+  DISCH_THEN (MP_TAC o MATCH_MP FINITE_RECURSION) THEN
+  DISCH_THEN (STRIP_ASSUME_TAC o SPEC `b:B`) THEN
+  ASM_REWRITE_TAC [] THEN
+  REPEAT GEN_TAC THEN
+  ASM_CASES_TAC `x:A IN s` THENL
+  [ASM_REWRITE_TAC [] THEN
+   DISCH_THEN (MP_TAC o MATCH_MP FINITE_DELETE_IMP) THEN
+   DISCH_THEN
+     (fun th ->
+        FIRST_X_ASSUM
+          (fun th' -> MP_TAC (SPEC `x:A` (MATCH_MP th' (SPEC `x:A` th))))) THEN
     REWRITE_TAC [IN_DELETE] THEN
     MATCH_MP_TAC (TAUT `!x y. (x <=> y) ==> (x ==> y)`) THEN
     AP_THM_TAC THEN
     AP_TERM_TAC THEN
-    AP_THM_TAC THEN
     AP_TERM_TAC THEN
     MATCH_MP_TAC INSERT_DELETE THEN
     FIRST_ASSUM ACCEPT_TAC;
-    ASM_REWRITE_TAC[] THEN
-    DISCH_TAC THEN AP_THM_TAC THEN AP_TERM_TAC THEN
+    ASM_REWRITE_TAC [] THEN
+    DISCH_TAC THEN
+    AP_TERM_TAC THEN
     MATCH_MP_TAC EQ_SYM THEN
     ASM_REWRITE_TAC [DELETE_NON_ELEMENT]]);;
 
 export_thm FINITE_RECURSION_DELETE;;
 
 let ITSET_EQ = prove
- (`!s (f:A->B->B) g b.
+ (`!(f:A->B->B) g b s.
              FINITE(s) /\ (!x. x IN s ==> (f x = g x)) /\
              (!x y s. ~(x = y) ==> (f x (f y s) = f y (f x s))) /\
              (!x y s. ~(x = y) ==> (g x (g y s) = g y (g x s)))
-             ==> (ITSET f s b = ITSET g s b)`,
+             ==> (ITSET f b s = ITSET g b s)`,
+  GEN_TAC THEN
+  GEN_TAC THEN
+  ONCE_REWRITE_TAC [SWAP_FORALL_THM] THEN
   ONCE_REWRITE_TAC [IMP_CONJ] THEN
-  ONCE_REWRITE_TAC [RIGHT_FORALL_IMP_THM] THEN
-  ONCE_REWRITE_TAC [RIGHT_FORALL_IMP_THM] THEN
   ONCE_REWRITE_TAC [RIGHT_FORALL_IMP_THM] THEN
   MATCH_MP_TAC FINITE_INDUCT_STRONG THEN
   REPEAT STRIP_TAC THENL
@@ -3172,11 +3314,9 @@ let ITSET_EQ = prove
    DISCH_THEN (MP_TAC o SPECL [`x:A`; `s:A set`] o CONJUNCT2) THEN
    ASM_REWRITE_TAC [] THEN
    DISCH_THEN SUBST1_TAC THEN
-   FIRST_X_ASSUM (MP_TAC o SPECL [`f:A->B->B`; `g:A->B->B`; `b:B`]) THEN
-   MATCH_MP_TAC (TAUT `!x y z. x /\ (y ==> z) ==> ((x ==> y) ==> z)`) THEN
-   CONJ_TAC THENL
-   [ASM_REWRITE_TAC [] THEN
-    REPEAT STRIP_TAC THEN
+   FIRST_X_ASSUM (MP_TAC o SPECL [`b:B`]) THEN
+   ANTS_TAC THENL
+   [REPEAT STRIP_TAC THEN
     FIRST_X_ASSUM MATCH_MP_TAC THEN
     ASM_REWRITE_TAC [IN_INSERT];
     DISCH_THEN SUBST1_TAC THEN
@@ -3193,13 +3333,13 @@ export_thm ITSET_EQ;;
 logfile "set-size-def";;
 
 let CARD = new_definition
- `!(s : A set). CARD s = ITSET (\x n. SUC n) s 0`;;
+ `CARD = ITSET (\ (x:A) n. SUC n) 0`;;
 
 export_thm CARD;;
 
 logfile "set-size-thm";;
 
-let CARD_CLAUSES = prove
+let (CARD_EMPTY,CARD_INSERT) = (CONJ_PAIR o prove)
  (`(CARD ({}:A set) = 0) /\
    (!(x:A) s. FINITE s ==>
                  (CARD (x INSERT s) =
@@ -3207,18 +3347,15 @@ let CARD_CLAUSES = prove
   MP_TAC(ISPECL [`\(x:A) n. SUC n`; `0`] FINITE_RECURSION) THEN
   REWRITE_TAC[CARD]);;
 
-export_thm CARD_CLAUSES;;
-
-let CARD_EMPTY = prove
- (`CARD (EMPTY : A set) = 0`,
-  REWRITE_TAC [CARD_CLAUSES]);;
-
 export_thm CARD_EMPTY;;
+export_thm CARD_INSERT;;
+
+let CARD_CLAUSES = CONJ CARD_EMPTY CARD_INSERT;;
 
 let CARD_SING = prove
  (`!(x:A). CARD (x INSERT EMPTY) = 1`,
   GEN_TAC THEN
-  MP_TAC (SPECL [`x:A`; `EMPTY : A set`] (CONJUNCT2 CARD_CLAUSES)) THEN
+  MP_TAC (SPECL [`x:A`; `EMPTY : A set`] CARD_INSERT) THEN
   REWRITE_TAC [FINITE_EMPTY; NOT_IN_EMPTY; CARD_EMPTY; ONE]);;
 
 export_thm CARD_SING;;
@@ -3232,10 +3369,10 @@ let CARD_UNION = prove
   REWRITE_TAC[UNION_EMPTY; CARD_CLAUSES; ADD; DISJOINT_INSERT] THEN
   X_GEN_TAC `x:A` THEN X_GEN_TAC `s:A set` THEN REPEAT STRIP_TAC THEN
   ASM_REWRITE_TAC [INSERT_UNION] THEN
-  MP_TAC (SPECL [`x:A`; `s:A set`] (CONJUNCT2 CARD_CLAUSES)) THEN
+  MP_TAC (SPECL [`x:A`; `s:A set`] CARD_INSERT) THEN
   ASM_REWRITE_TAC [] THEN
   DISCH_THEN SUBST1_TAC THEN
-  MP_TAC (SPECL [`x:A`; `(s:A set) UNION t`] (CONJUNCT2 CARD_CLAUSES)) THEN
+  MP_TAC (SPECL [`x:A`; `(s:A set) UNION t`] CARD_INSERT) THEN
   ASM_REWRITE_TAC [FINITE_UNION; IN_UNION] THEN
   DISCH_THEN SUBST1_TAC THEN
   REWRITE_TAC [ADD] THEN
@@ -3253,7 +3390,7 @@ let CARD_DELETE = prove
     ASM_REWRITE_TAC [] THEN
     DISCH_THEN
       (fun th -> CONV_TAC (RAND_CONV (ONCE_REWRITE_CONV [SYM th]))) THEN
-    MP_TAC (SPECL [`x:A`; `s DELETE (x:A)`] (CONJUNCT2 CARD_CLAUSES)) THEN
+    MP_TAC (SPECL [`x:A`; `s DELETE (x:A)`] CARD_INSERT) THEN
     ASM_REWRITE_TAC [FINITE_DELETE; IN_DELETE] THEN
     DISCH_THEN SUBST1_TAC THEN
     REWRITE_TAC [ADD1; ADD_SUB];
@@ -3293,7 +3430,7 @@ let CARD_EQ_0 = prove
   MATCH_MP_TAC FINITE_INDUCT_STRONG THEN
   REWRITE_TAC [CONJUNCT1 CARD_CLAUSES; NOT_INSERT_EMPTY] THEN
   REPEAT STRIP_TAC THEN
-  MP_TAC (SPECL [`x:A`; `s:A set`] (CONJUNCT2 CARD_CLAUSES)) THEN
+  MP_TAC (SPECL [`x:A`; `s:A set`] CARD_INSERT) THEN
   ASM_REWRITE_TAC [NOT_SUC]);;
 
 export_thm CARD_EQ_0;;
@@ -3303,13 +3440,14 @@ export_thm CARD_EQ_0;;
 (* ------------------------------------------------------------------------- *)
 
 let FINITE_INDUCT_DELETE = prove
- (`!P. P {} /\
-       (!s. FINITE s /\ ~(s = {}) ==> ?x. x IN s /\ (P(s DELETE x) ==> P s))
-       ==> !(s:A set). FINITE s ==> P s`,
+ (`!p.
+     p {} /\
+     (!s. FINITE s /\ ~(s = {}) ==> ?x. x IN s /\ (p (s DELETE x) ==> p s)) ==>
+     !s : A set. FINITE s ==> p s`,
   GEN_TAC THEN
   STRIP_TAC THEN
   GEN_TAC THEN
-  SUBGOAL_THEN `!n (s:A set). FINITE s ==> CARD s = n ==> P s`
+  SUBGOAL_THEN `!n (s:A set). FINITE s ==> CARD s = n ==> p s`
     (fun th ->
        MP_TAC (SPECL [`CARD (s : A set)`; `s : A set`] th) THEN
        REWRITE_TAC []) THEN
@@ -3341,7 +3479,7 @@ let FINITE_INDUCT_DELETE = prove
        (fun th ->
           CONV_TAC
             (LAND_CONV (LAND_CONV (RAND_CONV (REWR_CONV (SYM th)))))) THEN
-     MP_TAC (SPECL [`x : A`; `s DELETE (x : A)`] (CONJUNCT2 CARD_CLAUSES)) THEN
+     MP_TAC (SPECL [`x : A`; `s DELETE (x : A)`] CARD_INSERT) THEN
      ASM_REWRITE_TAC [FINITE_DELETE; IN_DELETE] THEN
      DISCH_THEN SUBST1_TAC THEN
      REWRITE_TAC [SUC_INJ] THEN
@@ -3498,11 +3636,10 @@ export_thm FINITE_HAS_SIZE;;
 (* This is often more useful as a rewrite.                                   *)
 (* ------------------------------------------------------------------------- *)
 
-let HAS_SIZE_CLAUSES = prove
- (`(!s. (s:A set) HAS_SIZE 0 <=> (s = {})) /\
-   (!s n. (s:A set) HAS_SIZE (SUC n) <=>
+let HAS_SIZE_INSERT = prove
+ (`(!s n. (s:A set) HAS_SIZE (SUC n) <=>
         ?a t. t HAS_SIZE n /\ ~(a IN t) /\ (s = a INSERT t))`,
-  REWRITE_TAC[HAS_SIZE_0] THEN REPEAT STRIP_TAC THEN EQ_TAC THENL
+  REPEAT STRIP_TAC THEN EQ_TAC THENL
    [REWRITE_TAC[HAS_SIZE_SUC; GSYM MEMBER_NOT_EMPTY] THEN
     STRIP_TAC THEN
     POP_ASSUM
@@ -3516,7 +3653,9 @@ let HAS_SIZE_CLAUSES = prove
     FIRST_ASSUM ACCEPT_TAC;
     SIMP_TAC [LEFT_IMP_EXISTS_THM; HAS_SIZE; CARD_CLAUSES; FINITE_INSERT]]);;
 
-export_thm HAS_SIZE_CLAUSES;;
+export_thm HAS_SIZE_INSERT;;
+
+let HAS_SIZE_CLAUSES = CONJ HAS_SIZE_0 HAS_SIZE_INSERT;;
 
 (* ------------------------------------------------------------------------- *)
 (* Produce an explicit expansion for "s HAS_SIZE n" for numeral n.           *)
@@ -5002,46 +5141,17 @@ export_thm CARD_LE_INJ;;
 
 logfile "set-thm";;
 
-let FORALL_IN_CLAUSES = prove
- (`(!P. (!(x:A). x IN {} ==> P x) <=> T) /\
-   (!P a s.
-      (!(x:A). x IN (a INSERT s) ==> P x) <=> P a /\ (!x. x IN s ==> P x))`,
-  REWRITE_TAC [IN_INSERT; NOT_IN_EMPTY] THEN
-  REPEAT GEN_TAC THEN
-  EQ_TAC THENL
-  [REPEAT STRIP_TAC THENL
-   [FIRST_X_ASSUM MATCH_MP_TAC THEN
-    REWRITE_TAC [];
-    FIRST_X_ASSUM MATCH_MP_TAC THEN
-    ASM_REWRITE_TAC []];
-   REPEAT STRIP_TAC THENL
-   [ASM_REWRITE_TAC [];
-    FIRST_X_ASSUM MATCH_MP_TAC THEN
-    ASM_REWRITE_TAC []]]);;
+let FORALL_IN_EMPTY = prove
+ (`!p. (!x : A. x IN {} ==> p x) <=> T`,
+  REWRITE_TAC [NOT_IN_EMPTY]);;
 
-export_thm FORALL_IN_CLAUSES;;
+let FORALL_IN_CLAUSES = CONJ FORALL_IN_EMPTY FORALL_IN_INSERT;;
 
-let EXISTS_IN_CLAUSES = prove
- (`(!P. (?(x:A). x IN {} /\ P x) <=> F) /\
-   (!P a s.
-      (?(x:A). x IN (a INSERT s) /\ P x) <=> P a \/ (?x. x IN s /\ P x))`,
-  REWRITE_TAC [IN_INSERT; NOT_IN_EMPTY] THEN
-  REPEAT GEN_TAC THEN
-  EQ_TAC THENL
-  [REPEAT STRIP_TAC THENL
-   [DISJ1_TAC THEN
-    FIRST_X_ASSUM (SUBST1_TAC o SYM) THEN
-    FIRST_X_ASSUM ACCEPT_TAC;
-    DISJ2_TAC THEN
-    EXISTS_TAC `x : A` THEN
-    ASM_REWRITE_TAC []];
-   REPEAT STRIP_TAC THENL
-   [EXISTS_TAC `a : A` THEN
-    ASM_REWRITE_TAC [];
-    EXISTS_TAC `x : A` THEN
-    ASM_REWRITE_TAC []]]);;
+let EXISTS_IN_EMPTY = prove
+ (`!p. (?x : A. x IN {} /\ p x) <=> F`,
+  REWRITE_TAC [NOT_IN_EMPTY]);;
 
-export_thm EXISTS_IN_CLAUSES;;
+let EXISTS_IN_CLAUSES = CONJ EXISTS_IN_EMPTY EXISTS_IN_INSERT;;
 
 (* ------------------------------------------------------------------------- *)
 (* Useful general properties of functions.                                   *)

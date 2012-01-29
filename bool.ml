@@ -155,6 +155,11 @@ let CONJ_PAIR th =
   try CONJUNCT1 th,CONJUNCT2 th
   with Failure _ -> failwith "CONJ_PAIR: Not a conjunction";;
 
+let CONJ_TRIPLE th =
+  let (c1,c23) = CONJ_PAIR th in
+  let (c2,c3) = CONJ_PAIR c23 in
+  (c1,c2,c3);;
+
 let CONJUNCTS = striplist CONJ_PAIR;;
 
 (* ------------------------------------------------------------------------- *)
@@ -312,7 +317,7 @@ let GEN_ALL th =
 logfile "bool-def";;
 
 let EXISTS_DEF = new_basic_definition
- `(?) = \P:A->bool. !q. (!x. P x ==> q) ==> q`;;
+ `(?) = \p:A->bool. !q. (!x. p x ==> q) ==> q`;;
 
 export_thm EXISTS_DEF;;
 
@@ -483,7 +488,7 @@ let CONTR =
 logfile "bool-def";;
 
 let EXISTS_UNIQUE_DEF = new_basic_definition
- `(?!) = \P:A->bool. ((?) P) /\ (!x y. P x /\ P y ==> x = y)`;;
+ `(?!) = \p:A->bool. ((?) p) /\ (!x y. p x /\ p y ==> x = y)`;;
 
 export_thm EXISTS_UNIQUE_DEF;;
 

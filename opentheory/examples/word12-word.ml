@@ -12,7 +12,7 @@ let word12_size_nonzero = new_axiom
 
 (* word12 *)
 
-(* word12-mod *)
+(* word12-def *)
 
 let mod_refl_word12_size = new_axiom
   `word12_size MOD word12_size = 0`;;
@@ -35,7 +35,8 @@ let mod_add_mod_word12_size = new_axiom
 let mod_mult_mod_word12_size = new_axiom
   `!m n. (m MOD word12_size * n MOD word12_size) MOD word12_size = (m * n) MOD word12_size`;;
 
-(* word12-def *)
+let divides_mod_word12_size = new_axiom
+   `!n. divides word12_size n <=> n MOD word12_size = 0`;;
 
 new_type ("word12",0);;
 
@@ -96,6 +97,9 @@ let word12_to_num_inj = new_axiom
 let num_to_word12_eq = new_axiom
    `!x y.
       num_to_word12 x = num_to_word12 y <=> x MOD word12_size = y MOD word12_size`;;
+
+let num_to_word12_is_zero = new_axiom
+   `!x. num_to_word12 x = num_to_word12 0 <=> divides word12_size x`;;
 
 let word12_to_num_bound = new_axiom
   `!x. word12_to_num x < word12_size`;;
@@ -228,12 +232,15 @@ let word12_to_list_def = new_axiom
 
 new_constant ("list_to_word12", `:bool list -> word12`);;
 
-let list_to_word12_def = new_axiom
-  `(list_to_word12 [] = num_to_word12 0) /\
-   (!h t.
-      list_to_word12 (CONS h t) =
-      if h then word12_add (word12_shl (list_to_word12 t) 1) (num_to_word12 1)
-      else word12_shl (list_to_word12 t) 1)`;;
+let list_to_word12_nil = new_axiom
+  `list_to_word12 [] = num_to_word12 0`
+and list_to_word12_cons = new_axiom
+  `!h t.
+     list_to_word12 (CONS h t) =
+     if h then word12_add (word12_shl (list_to_word12 t) 1) (num_to_word12 1)
+     else word12_shl (list_to_word12 t) 1`;;
+
+let list_to_word12_def = CONJ list_to_word12_nil list_to_word12_cons;;
 
 new_constant ("is_word12_list", `:bool list -> bool`);;
 
@@ -261,11 +268,14 @@ let word12_not_def = new_axiom
 
 new_constant ("word12_bits_lte", `:bool -> bool list -> bool list -> bool`);;
 
-let word12_bits_lte_def = new_axiom
-   `(!q. word12_bits_lte q [] [] = q) /\
-    (!q h1 h2 t1 t2.
-       word12_bits_lte q (CONS h1 t1) (CONS h2 t2) =
-       word12_bits_lte ((~h1 /\ h2) \/ (~(h1 /\ ~h2) /\ q)) t1 t2)`;;
+let word12_bits_lte_nil = new_axiom
+   `!q. word12_bits_lte q [] [] = q`
+and word12_bits_lte_cons = new_axiom
+   `!q h1 h2 t1 t2.
+      word12_bits_lte q (CONS h1 t1) (CONS h2 t2) =
+      word12_bits_lte ((~h1 /\ h2) \/ (~(h1 /\ ~h2) /\ q)) t1 t2`;;
+
+let word12_bits_lte_def = CONJ word12_bits_lte_nil word12_bits_lte_cons;;
 
 (* word12-bits-thm *)
 
