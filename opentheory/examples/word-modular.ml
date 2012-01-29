@@ -1,6 +1,6 @@
 (* word *)
 
-(* word-mod *)
+(* word-def *)
 
 let mod_refl_word_size = new_axiom
   `word_size MOD word_size = 0`;;
@@ -23,7 +23,8 @@ let mod_add_mod_word_size = new_axiom
 let mod_mult_mod_word_size = new_axiom
   `!m n. (m MOD word_size * n MOD word_size) MOD word_size = (m * n) MOD word_size`;;
 
-(* word-def *)
+let divides_mod_word_size = new_axiom
+   `!n. divides word_size n <=> n MOD word_size = 0`;;
 
 new_type ("word",0);;
 
@@ -84,6 +85,9 @@ let word_to_num_inj = new_axiom
 let num_to_word_eq = new_axiom
    `!x y.
       num_to_word x = num_to_word y <=> x MOD word_size = y MOD word_size`;;
+
+let num_to_word_is_zero = new_axiom
+   `!x. num_to_word x = num_to_word 0 <=> divides word_size x`;;
 
 let word_to_num_bound = new_axiom
   `!x. word_to_num x < word_size`;;
@@ -195,7 +199,7 @@ let word_mult_right_neg = new_axiom
 (*PARAMETRIC
 (* word *)
 
-(* word-mod *)
+(* word-def *)
 
 let mod_refl_word_size = new_axiom
   `word_size MOD word_size = 0`;;
@@ -218,7 +222,8 @@ let mod_add_mod_word_size = new_axiom
 let mod_mult_mod_word_size = new_axiom
   `!m n. (m MOD word_size * n MOD word_size) MOD word_size = (m * n) MOD word_size`;;
 
-(* word-def *)
+let divides_mod_word_size = new_axiom
+   `!n. divides word_size n <=> n MOD word_size = 0`;;
 
 new_type ("word",0);;
 
@@ -279,6 +284,9 @@ let word_to_num_inj = new_axiom
 let num_to_word_eq = new_axiom
    `!x y.
       num_to_word x = num_to_word y <=> x MOD word_size = y MOD word_size`;;
+
+let num_to_word_is_zero = new_axiom
+   `!x. num_to_word x = num_to_word 0 <=> divides word_size x`;;
 
 let word_to_num_bound = new_axiom
   `!x. word_to_num x < word_size`;;

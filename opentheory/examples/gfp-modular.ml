@@ -1,6 +1,6 @@
 (* gfp *)
 
-(* gfp-mod *)
+(* gfp-def *)
 
 let mod_refl_oddprime = new_axiom
   `oddprime MOD oddprime = 0`;;
@@ -23,7 +23,8 @@ let mod_add_mod_oddprime = new_axiom
 let mod_mult_mod_oddprime = new_axiom
   `!m n. (m MOD oddprime * n MOD oddprime) MOD oddprime = (m * n) MOD oddprime`;;
 
-(* gfp-def *)
+let divides_mod_oddprime = new_axiom
+   `!n. divides oddprime n <=> n MOD oddprime = 0`;;
 
 new_type ("gfp",0);;
 
@@ -84,6 +85,9 @@ let gfp_to_num_inj = new_axiom
 let num_to_gfp_eq = new_axiom
    `!x y.
       num_to_gfp x = num_to_gfp y <=> x MOD oddprime = y MOD oddprime`;;
+
+let num_to_gfp_is_zero = new_axiom
+   `!x. num_to_gfp x = num_to_gfp 0 <=> divides oddprime x`;;
 
 let gfp_to_num_bound = new_axiom
   `!x. gfp_to_num x < oddprime`;;
@@ -195,7 +199,7 @@ let gfp_mult_right_neg = new_axiom
 (*PARAMETRIC
 (* gfp *)
 
-(* gfp-mod *)
+(* gfp-def *)
 
 let mod_refl_oddprime = new_axiom
   `oddprime MOD oddprime = 0`;;
@@ -218,7 +222,8 @@ let mod_add_mod_oddprime = new_axiom
 let mod_mult_mod_oddprime = new_axiom
   `!m n. (m MOD oddprime * n MOD oddprime) MOD oddprime = (m * n) MOD oddprime`;;
 
-(* gfp-def *)
+let divides_mod_oddprime = new_axiom
+   `!n. divides oddprime n <=> n MOD oddprime = 0`;;
 
 new_type ("gfp",0);;
 
@@ -279,6 +284,9 @@ let gfp_to_num_inj = new_axiom
 let num_to_gfp_eq = new_axiom
    `!x y.
       num_to_gfp x = num_to_gfp y <=> x MOD oddprime = y MOD oddprime`;;
+
+let num_to_gfp_is_zero = new_axiom
+   `!x. num_to_gfp x = num_to_gfp 0 <=> divides oddprime x`;;
 
 let gfp_to_num_bound = new_axiom
   `!x. gfp_to_num x < oddprime`;;

@@ -124,6 +124,14 @@ let DIST_RADD = prove
 
 export_thm DIST_RADD;;
 
+let DIST_SUC = prove
+ (`!m n. dist (SUC m) (SUC n) = dist m n`,
+  REPEAT GEN_TAC THEN
+  REWRITE_TAC [ADD1] THEN
+  MATCH_ACCEPT_TAC DIST_RADD);;
+
+export_thm DIST_SUC;;
+
 let DIST_RADD_0 = prove
  (`!m n. dist m (m + n) = n`,
   REWRITE_TAC[dist; LE_ADD; ADD_SUB2]);;
@@ -182,12 +190,13 @@ export_thm DIST_EQ_0;;
 (* ------------------------------------------------------------------------- *)
 
 let DIST_ELIM_THM = prove
- (`!P x y.
-     P (dist x y) <=> !d. ((x = y + d) ==> P(d)) /\ ((y = x + d) ==> P(d))`,
+ (`!p x y.
+     p (dist x y) <=>
+     !d. ((x = y + d) ==> p d) /\ ((y = x + d) ==> p d)`,
   REPEAT GEN_TAC THEN
   REWRITE_TAC [dist] THEN
   COND_CASES_TAC THENL
-  [ASM_CASES_TAC `y <= x` THENL
+  [ASM_CASES_TAC `y <= (x : num)` THENL
    [MP_TAC (SPECL [`x:num`; `y:num`] LE_ANTISYM) THEN
     ASM_REWRITE_TAC [] THEN
     DISCH_THEN SUBST1_TAC THEN
@@ -203,8 +212,8 @@ let DIST_ELIM_THM = prove
     REWRITE_TAC [ADD_SUB2; EQ_ADD_LCANCEL] THEN
     CONV_TAC (RAND_CONV (ONCE_REWRITE_CONV [EQ_SYM_EQ])) THEN
     REWRITE_TAC [FORALL_UNWIND_THM2]];
-   ASM_CASES_TAC `y <= x` THENL
-   [UNDISCH_TAC `~(x <= y)` THEN
+   ASM_CASES_TAC `y <= (x:num)` THENL
+   [UNDISCH_TAC `~(x <= (y:num))` THEN
     REWRITE_TAC [LE_EXISTS; NOT_EXISTS_THM] THEN
     DISCH_THEN (fun th -> REWRITE_TAC [th]) THEN
     POP_ASSUM MP_TAC THEN
@@ -223,7 +232,8 @@ export_thm DIST_ELIM_THM;;
 (* ------------------------------------------------------------------------- *)
 
 let DIST_CASES,DIST_LE_CASES,DIST_ADDBOUND,
-    DIST_TRIANGLE,DIST_ADD2,DIST_ADD2_REV =
+    DIST_TRIANGLE,DIST_ADD2,DIST_ADD2_REV,
+    DIST_DIST_SUC =
   let DIST_ELIM_TAC =
     let conv = HIGHER_REWRITE_CONV[COND_ELIM_THM; DIST_ELIM_THM] false in
     CONV_TAC conv THEN TRY GEN_TAC THEN CONJ_TAC THEN
@@ -231,12 +241,6 @@ let DIST_CASES,DIST_LE_CASES,DIST_ADDBOUND,
                          (let l,r = dest_eq (concl th) in
                           if is_var l & not (vfree_in l r) then ALL_TAC
                           else ASSUME_TAC th)) in
-  let DIST_ELIM_TAC' =
-    REPEAT STRIP_TAC THEN REPEAT DIST_ELIM_TAC THEN
-    REWRITE_TAC[GSYM NOT_LT; LT_EXISTS] THEN
-    DISCH_THEN(CHOOSE_THEN SUBST_ALL_TAC) THEN POP_ASSUM MP_TAC THEN
-    CONV_TAC(LAND_CONV NUM_CANCEL_CONV) THEN
-    REWRITE_TAC[ADD_CLAUSES; NOT_SUC] in
   let DIST_CASES = prove
    (`!m n p. dist m n = p <=> m + p = n \/ n + p = m`,
     REPEAT GEN_TAC THEN
@@ -254,14 +258,72 @@ let DIST_CASES,DIST_LE_CASES,DIST_ADDBOUND,
    (`!m n. dist m n <= m + n`,
     REPEAT GEN_TAC THEN DIST_ELIM_TAC THENL
      [ONCE_REWRITE_TAC[ADD_SYM]; ALL_TAC] THEN
-    REWRITE_TAC[ADD_ASSOC; LE_ADDR])
-  and [DIST_TRIANGLE; DIST_ADD2; DIST_ADD2_REV] = (CONJUNCTS o prove)
-   (`(!m n p. dist m p <= dist m n + dist n p) /\
-     (!m n p q. dist (m + n) (p + q) <= dist m p + dist n q) /\
-     (!m n p q. dist m p <= dist (m + n) (p + q) + dist n q)`,
-    DIST_ELIM_TAC') in
+    REWRITE_TAC[ADD_ASSOC; LE_ADDR]) in
+  let DIST_LEMMA = prove
+   (`!m n. n <= m + dist m n`,
+    REPEAT GEN_TAC THEN
+    DIST_ELIM_TAC THENL
+    [REWRITE_TAC [GSYM ADD_ASSOC; LE_ADD];
+     MATCH_ACCEPT_TAC LE_REFL]) in
+  let DIST_TRIANGLE = prove
+   (`!m n p. dist m p <= dist m n + dist n p`,
+    REPEAT GEN_TAC THEN
+    REWRITE_TAC [DIST_LE_CASES] THEN
+    CONJ_TAC THENL
+    [CONV_TAC (RAND_CONV (RAND_CONV (REWR_CONV ADD_SYM))) THEN
+     ONCE_REWRITE_TAC [DIST_SYM] THEN
+     MATCH_MP_TAC LE_TRANS THEN
+     EXISTS_TAC `n + dist n m` THEN
+     REWRITE_TAC [DIST_LEMMA; LE_ADD_RCANCEL; ADD_ASSOC];
+     MATCH_MP_TAC LE_TRANS THEN
+     EXISTS_TAC `n + dist n p` THEN
+     REWRITE_TAC [DIST_LEMMA; LE_ADD_RCANCEL; ADD_ASSOC]]) in
+  let DIST_ADD2 = prove
+   (`!m n p q. dist (m + n) (p + q) <= dist m p + dist n q`,
+    REPEAT GEN_TAC THEN
+    REWRITE_TAC [DIST_LE_CASES] THEN
+    CONJ_TAC THENL
+    [ONCE_REWRITE_TAC [DIST_SYM] THEN
+     MATCH_MP_TAC LE_TRANS THEN
+     EXISTS_TAC `m + (q + dist q n)` THEN
+     REWRITE_TAC [DIST_LEMMA; LE_ADD_LCANCEL] THEN
+     REWRITE_TAC [ADD_ASSOC; LE_ADD_RCANCEL] THEN
+     REWRITE_TAC [GSYM ADD_ASSOC] THEN
+     CONV_TAC (RAND_CONV (RAND_CONV (REWR_CONV ADD_SYM))) THEN
+     REWRITE_TAC [ADD_ASSOC; LE_ADD_RCANCEL; DIST_LEMMA];
+     MATCH_MP_TAC LE_TRANS THEN
+     EXISTS_TAC `p + (n + dist n q)` THEN
+     REWRITE_TAC [DIST_LEMMA; LE_ADD_LCANCEL] THEN
+     REWRITE_TAC [ADD_ASSOC; LE_ADD_RCANCEL] THEN
+     REWRITE_TAC [GSYM ADD_ASSOC] THEN
+     CONV_TAC (RAND_CONV (RAND_CONV (REWR_CONV ADD_SYM))) THEN
+     REWRITE_TAC [ADD_ASSOC; LE_ADD_RCANCEL; DIST_LEMMA]]) in
+  let DIST_ADD2_REV = prove
+   (`!m n p q. dist m p <= dist (m + n) (p + q) + dist n q`,
+    REPEAT GEN_TAC THEN
+    MATCH_MP_TAC LE_TRANS THEN
+    EXISTS_TAC `dist ((m + n) + q) ((p + q) + n)` THEN
+    CONJ_TAC THENL
+    [REWRITE_TAC [GSYM ADD_ASSOC] THEN
+     CONV_TAC (RAND_CONV (RAND_CONV (RAND_CONV (REWR_CONV ADD_SYM)))) THEN
+     REWRITE_TAC [DIST_RADD; LE_REFL];
+     CONV_TAC (RAND_CONV (RAND_CONV (REWR_CONV DIST_SYM))) THEN
+     MATCH_ACCEPT_TAC DIST_ADD2]) in
+  let DIST_DIST_SUC = prove
+   (`!m n. dist (dist m n) (dist m (n + 1)) = 1`,
+    REPEAT GEN_TAC THEN
+    DIST_ELIM_TAC THENL
+    [REWRITE_TAC [DIST_LADD] THEN
+     MP_TAC (SPEC `d : num` num_CASES) THEN
+     STRIP_TAC THENL
+     [ASM_REWRITE_TAC [DIST_LZERO];
+      POP_ASSUM SUBST1_TAC THEN
+      REWRITE_TAC [ONE; DIST_SUC; DIST_RZERO] THEN
+      REWRITE_TAC [ADD1; DIST_LADD_0; ZERO_ADD]];
+     REWRITE_TAC [GSYM ADD_ASSOC; DIST_RADD_0]]) in
   DIST_CASES,DIST_LE_CASES,DIST_ADDBOUND,
-  DIST_TRIANGLE,DIST_ADD2,DIST_ADD2_REV;;
+  DIST_TRIANGLE,DIST_ADD2,DIST_ADD2_REV,
+  DIST_DIST_SUC;;
 
 export_thm DIST_CASES;;
 export_thm DIST_LE_CASES;;
@@ -269,6 +331,7 @@ export_thm DIST_ADDBOUND;;
 export_thm DIST_TRIANGLE;;
 export_thm DIST_ADD2;;
 export_thm DIST_ADD2_REV;;
+export_thm DIST_DIST_SUC;;
 
 let DIST_TRIANGLE_LE = prove
  (`!m n p q. dist m n + dist n p <= q ==> dist m p <= q`,
@@ -294,7 +357,7 @@ export_thm DIST_TRIANGLES_LE;;
 (* Useful lemmas about bounds.                                               *)
 (* ------------------------------------------------------------------------- *)
 
-logfile "natural-mult-order";;
+logfile "natural-mult-thm";;
 
 let BOUNDS_LINEAR = prove
  (`!A B C. (!n. A * n <= B * n + C) <=> A <= B`,
@@ -355,7 +418,7 @@ let BOUNDS_NOTZERO = prove
 
 export_thm BOUNDS_NOTZERO;;
 
-logfile "natural-add-order";;
+logfile "natural-add-thm";;
 
 let BOUNDS_IGNORE = prove
  (`!P Q. (?B. !i. P(i) <= Q(i) + B) <=>
@@ -1964,14 +2027,23 @@ let real_abs = new_definition
 
 export_thm real_abs;;
 
-let real_pow = new_recursive_definition num_RECURSION
-  `(!x. x pow 0 = &1) /\
-   (!x n. x pow (SUC n) = x * (x pow n))`;;
+let (real_pow_0,real_pow_suc) =
+  let def = new_recursive_definition num_RECURSION
+    `(!x. x pow 0 = &1) /\
+     (!x n. x pow (SUC n) = x * (x pow n))` in
+  CONJ_PAIR def;;
 
-export_thm real_pow;;
+export_thm real_pow_0;;
+export_thm real_pow_suc;;
 
-let real_div = new_definition
-  `!x y. x / y = x * inv(y)`;;
+let real_pow = CONJ real_pow_0 real_pow_suc;;
+
+let real_div =
+  let def = new_definition
+    `!x y. x / y = x * inv(y)` in
+  prove
+  (`!x y. ~(y = &0) ==> x / y = x * inv(y)`,
+   REWRITE_TAC [def]);;
 
 export_thm real_div;;
 
@@ -2159,35 +2231,43 @@ let SUP_EXISTS = prove
    EXISTS_TAC `y:real` THEN
    ASM_REWRITE_TAC []]);;
 
-let sup_def =
+let (sup_bound,sup_least) =
     let th0 = SUP_EXISTS in
     let th1 = ONCE_REWRITE_RULE [RIGHT_IMP_EXISTS_THM] th0 in
     let th2 = ONCE_REWRITE_RULE [SKOLEM_THM] th1 in
-    new_specification ["sup"] th2;;
+    let def = new_specification ["sup"] th2 in
+    let th3 = REWRITE_RULE [IMP_AND_DISTRIB; FORALL_AND_THM] def in
+    let th4 = REWRITE_RULE [RIGHT_IMP_FORALL_THM] th3 in
+    let th5 = REWRITE_RULE [IMP_IMP; CONJ_ASSOC'] th4 in
+    CONJ_PAIR th5;;
 
-export_thm sup_def;;
+export_thm sup_bound;;
+export_thm sup_least;;
 
 logfile "real-thm";;
 
 let REAL_COMPLETE = prove
- (`!P. (?x. P x) /\
-       (?M. !x. P x ==> x <= M)
-       ==> ?M. (!x. P x ==> x <= M) /\
-               !M'. (!x. P x ==> x <= M') ==> M <= M'`,
+ (`!p. (?x. p x) /\
+       (?m. !x. p x ==> x <= m)
+       ==> ?s. (!x. p x ==> x <= s) /\
+               !m. (!x. p x ==> x <= m) ==> s <= m`,
   REPEAT STRIP_TAC THEN
-  MP_TAC (SPEC `{ (y:real) | P y }` sup_def) THEN
-  ANTS_TAC THENL
-  [ASM_REWRITE_TAC [EXTENSION; IN_ELIM; NOT_IN_EMPTY; NOT_FORALL_THM] THEN
+  EXISTS_TAC `sup { y | p y }` THEN
+  REPEAT STRIP_TAC THENL
+  [MATCH_MP_TAC sup_bound THEN
+   ASM_REWRITE_TAC [IN_ELIM; GSYM MEMBER_NOT_EMPTY] THEN
    CONJ_TAC THENL
-   [EXISTS_TAC `x : real` THEN
+   [EXISTS_TAC `x:real` THEN
     FIRST_ASSUM ACCEPT_TAC;
-    EXISTS_TAC `M : real` THEN
+    EXISTS_TAC `m:real` THEN
     FIRST_ASSUM ACCEPT_TAC];
-   REWRITE_TAC [IN_ELIM] THEN
-   STRIP_TAC THEN
-   EXISTS_TAC `sup { y | P y }` THEN
-   CONJ_TAC THEN
-   FIRST_ASSUM ACCEPT_TAC]);;
+   MATCH_MP_TAC sup_least THEN
+   ASM_REWRITE_TAC [IN_ELIM; GSYM MEMBER_NOT_EMPTY] THEN
+   CONJ_TAC THENL
+   [EXISTS_TAC `x:real` THEN
+    FIRST_ASSUM ACCEPT_TAC;
+    EXISTS_TAC `m:real` THEN
+    FIRST_ASSUM ACCEPT_TAC]]);;
 
 export_thm REAL_COMPLETE;;
 

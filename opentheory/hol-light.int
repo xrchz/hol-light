@@ -123,6 +123,7 @@ const "HOLLight.DIV" as "Number.Natural.div"
 const "HOLLight.EVEN" as "Number.Natural.even"
 const "HOLLight.EXP" as "Number.Natural.exp"
 const "HOLLight.FACT" as "Number.Natural.factorial"
+const "HOLLight.successor" as "Number.Natural.isSuc"
 const "HOLLight.MAX" as "Number.Natural.max"
 const "HOLLight.MIN" as "Number.Natural.min"
 const "HOLLight.minimal" as "Number.Natural.minimal"
@@ -153,42 +154,55 @@ const "HOLLight.real_max" as "Number.Real.max"
 const "HOLLight.real_min" as "Number.Real.min"
 const "HOLLight.sup" as "Number.Real.sup"
 
+# Relation
+
+const "HOLLight.big_interr" as "Relation.bigIntersect"
+const "HOLLight.big_unionr" as "Relation.bigUnion"
+const "HOLLight.emptyr" as "Relation.empty"
+const "HOLLight.set_to_relation" as "Relation.fromSet"
+const "HOLLight.interr" as "Relation.intersect"
+const "HOLLight.irreflexive" as "Relation.irreflexive"
+const "HOLLight.MEASURE" as "Relation.measure"
+const "HOLLight.reflexive" as "Relation.reflexive"
+const "HOLLight.subrelation" as "Relation.subrelation"
+const "HOLLight.relation_to_set" as "Relation.toSet"
+const "HOLLight.transitive" as "Relation.transitive"
+const "HOLLight.transitive_closure" as "Relation.transitiveClosure"
+const "HOLLight.unionr" as "Relation.union"
+const "HOLLight.univr" as "Relation.universe"
+const "HOLLight.WF" as "Relation.wellFounded"
+
 # Set
 
 type "HOLLight.set" as "Set.set"
 
-const "HOLLight.DIFF" as "Set.difference"
+const "HOLLight.EMPTY" as "Set.{}"
+const "HOLLight.INTERS" as "Set.bigIntersect"
+const "HOLLight.UNIONS" as "Set.bigUnion"
 const "HOLLight.BIJ" as "Set.bijections"
-const "HOLLight.CARD" as "Set.size"
 const "HOLLight.CHOICE" as "Set.choice"
 const "HOLLight.CROSS" as "Set.cross"
 const "HOLLight.DELETE" as "Set.delete"
+const "HOLLight.DIFF" as "Set.difference"
 const "HOLLight.DISJOINT" as "Set.disjoint"
-const "HOLLight.EMPTY" as "Set.{}"
 const "HOLLight.FINITE" as "Set.finite"
+const "HOLLight.ITSET" as "Set.fold"
 const "HOLLight.GSPEC" as "Set.fromPredicate"
 const "HOLLight.HAS_SIZE" as "Set.hasSize"
 const "HOLLight.IMAGE" as "Set.image"
-const "HOLLight.IN" as "Set.member"
 const "HOLLight.INFINITE" as "Set.infinite"
 const "HOLLight.INJ" as "Set.injections"
 const "HOLLight.INSERT" as "Set.insert"
 const "HOLLight.INTER" as "Set.intersect"
-const "HOLLight.INTERS" as "Set.bigIntersect"
-const "HOLLight.ITSET" as "Set.fold"
+const "HOLLight.IN" as "Set.member"
 const "HOLLight.PSUBSET" as "Set.properSubset"
 const "HOLLight.REST" as "Set.rest"
 const "HOLLight.SING" as "Set.singleton"
+const "HOLLight.CARD" as "Set.size"
 const "HOLLight.SUBSET" as "Set.subset"
 const "HOLLight.SURJ" as "Set.surjections"
 const "HOLLight.UNION" as "Set.union"
-const "HOLLight.UNIONS" as "Set.bigUnion"
 const "HOLLight.UNIV" as "Set.universe"
-
-# Relation
-
-const "HOLLight.WF" as "Relation.wellFounded"
-const "HOLLight.MEASURE" as "Relation.measure"
 
 # Unwanted
 
@@ -226,9 +240,9 @@ const "HOLLight.byte_width" as "Data.Byte.width"
 # Data.Byte.Bits
 
 const "HOLLight.byte_bits_lte" as "Data.Byte.Bits.compare"
-const "HOLLight.byte_to_list" as "Data.Byte.Bits.fromWord"
+const "HOLLight.byte_to_list" as "Data.Byte.Bits.fromByte"
 const "HOLLight.is_byte_list" as "Data.Byte.Bits.normal"
-const "HOLLight.list_to_byte" as "Data.Byte.Bits.toWord"
+const "HOLLight.list_to_byte" as "Data.Byte.Bits.toByte"
 
 # Data.Char
 
@@ -381,6 +395,24 @@ const "HOLLight.list_to_word16" as "Data.Word16.Bits.toWord"
 
 # Number
 
+# Number.GF(p)
+
+type "HOLLight.gfp" as "Number.GF(p).gfp"
+
+const "HOLLight.gfp_add" as "Number.GF(p).+"
+const "HOLLight.gfp_div" as "Number.GF(p)./"
+const "HOLLight.gfp_le" as "Number.GF(p).<="
+const "HOLLight.gfp_lt" as "Number.GF(p).<"
+const "HOLLight.gfp_neg" as "Number.GF(p).~"
+const "HOLLight.gfp_mult" as "Number.GF(p).*"
+const "HOLLight.gfp_sub" as "Number.GF(p).-"
+const "HOLLight.gfp_equiv" as "Number.GF(p).equivalent"
+const "HOLLight.num_to_gfp" as "Number.GF(p).fromNatural"
+const "HOLLight.gfp_div_gcd" as "Number.GF(p).gcdDiv"
+const "HOLLight.gfp_inv" as "Number.GF(p).inv"
+const "HOLLight.oddprime" as "Number.GF(p).oddprime"
+const "HOLLight.gfp_to_num" as "Number.GF(p).toNatural"
+
 # Number.Modular
 
 type "HOLLight.modular" as "Number.Modular.modular"
@@ -395,6 +427,13 @@ const "HOLLight.modular_equiv" as "Number.Modular.equivalent"
 const "HOLLight.num_to_modular" as "Number.Modular.fromNatural"
 const "HOLLight.modulus" as "Number.Modular.modulus"
 const "HOLLight.modular_to_num" as "Number.Modular.toNatural"
+
+# Number.Natural
+
+const "HOLLight.divides" as "Number.Natural.divides"
+const "HOLLight.gcd" as "Number.Natural.gcd"
+const "HOLLight.lcm" as "Number.Natural.lcm"
+const "HOLLight.prime" as "Number.Natural.prime"
 
 # Parser
 
