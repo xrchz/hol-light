@@ -1,3 +1,5 @@
+needs "Examples/prover9.ml";;
+needs "opentheory/io.ml";;
 exception Tm of term
 let t = try
   let _ = read_article_from {axiom=fun _ (_,c) -> raise (Tm c)} stdin in

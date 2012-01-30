@@ -1,3 +1,6 @@
+needs "opentheory/logging.ml";;
+needs "opentheory/reading.ml";;
+
 let _ = new_definition `!x y. K x y = x`;;
 
 let thm_to_article h th =
