@@ -476,10 +476,11 @@ let PROVER9 =
     let sth = PROVE_HYP (UNDISCH(fst(EQ_IMP_RULE ith))) eth in
     prule(DISCH tm' sth);;
 
+let rPROVER9 = PROVER9;;
 (* ------------------------------------------------------------------------- *)
 (* Examples.                                                                 *)
 (* ------------------------------------------------------------------------- *)
-
+(*
 let FRIEND_0 = time PROVER9
  `(!x:P. ~friend(x,x)) /\ ~(a:P = b) /\ (!x y. friend(x,y) ==> friend(y,x))
   ==> (!x. ?y z. friend(x,y) /\ ~friend(x,z)) \/
@@ -562,3 +563,4 @@ let DOUBLE_DISTRIB = time PROVER9
  `(!x y z. (x * y) * z = (x * z) * (y * z)) /\
   (!x y z. z * (x * y) = (z * x) * (z * y))
   ==> !a b c. (a * b) * (c * a) = (a * c) * (b * a)`;;
+*)

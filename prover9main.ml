@@ -1,12 +1,4 @@
+#use "hol.ml";;
 needs "Examples/prover9.ml";;
 needs "opentheory/io.ml";;
-exception Tm of term
-let t = try
-  let _ = read_article_from {axiom=fun _ (_,c) -> raise (Tm c)} stdin in
-  failwith "no theorem"
-  with Tm t -> t in
-let () = start_logging_to stdout in
-let th = PROVER9 t in
-let () = export_thm th in
-let () = stop_logging_to () in
-()
+let t = article_to_term stdin in thm_to_article stdout (fun () -> rPROVER9 t);;
