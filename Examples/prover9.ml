@@ -476,7 +476,6 @@ let PROVER9 =
     let sth = PROVE_HYP (UNDISCH(fst(EQ_IMP_RULE ith))) eth in
     prule(DISCH tm' sth);;
 
-let rPROVER9 = PROVER9;;
 (* ------------------------------------------------------------------------- *)
 (* Examples.                                                                 *)
 (* ------------------------------------------------------------------------- *)
