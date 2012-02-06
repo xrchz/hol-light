@@ -1,7 +1,6 @@
+needs "trivia.ml";;
 needs "opentheory/logging.ml";;
 needs "opentheory/reading.ml";;
-
-let _ = new_definition `!x y. K x y = x`;;
 
 let thm_to_article h th =
   let () = start_logging_to h in
@@ -10,7 +9,7 @@ let thm_to_article h th =
   ();;
 
 let term_to_article h t =
-  thm_to_article h (fun () -> mk_thm([],mk_icomb(mk_icomb(`K`,`F`),t)));;
+  thm_to_article h (fun () -> mk_thm([],mk_icomb(mk_icomb(`k_comb`,`F`),t)));;
 
 exception Term_from_article of term;;
 
